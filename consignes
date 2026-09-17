@@ -1,0 +1,158 @@
+challenge data
+ACCUEIL
+CHALLENGES
+IA DURABLE
+FAQ
+CONTACT
+DASHBOARD
+DÉCONNEXION
+Flag
+
+FR
+Challenge Data
+Segmentation médicale de structures anatomiques avec des labels manquants
+par Raidium
+Introduction
+Classement public
+Classement privé
+Soumissions
+La saison 2025 ayant été exceptionnellement prolongée jusqu’en 2026, le leaderboard présenté reflète exclusivement les résultats du challenge pour l’année 2025.
+
+Soumettre une solution
+Description
+NO LOGO FOR THIS CHALLENGE
+Challenge compétitif Biologie Santé Segmentation Images 10Mo à 1Go Niveau avancé
+Dates
+Commencé le 13 janvier 2026
+
+Contexte
+Les CT-scans offrent des images 3D très précises du corps humain (jusqu’à 0,5 mm de résolution) et permettent ainsi de saisir l’anatomie humaine.
+L’objectif de ce challenge est de segmenter automatiquement les structures anatomiques du corps humain, ainsi que les tumeurs, sur un CT-scan. Autrement dit, il s’agit d’identifier les formes visibles sur un CT-scan.
+Sur l’image ci-dessous, d’un CT-scan abdominal, les différentes structures ont été segmentées :
+
+
+
+De plus, de nombreux datasets publics sont disponibles, avec des annotations pour certains organes spécifiques.
+Il peut sembler souhaitable de fusionner de nombreux datasets pour apprendre un modèle de segmentation plus robuste.
+Pourtant, les algorithmes de segmentation sémantiques fonctionnent mal dans le cas ou les datasets ne comportent pas les mêmes labels :
+par exemple, le foie sera indiqué comme “background” dans un dataset, et labellisé dans un autre, ce qui va perturber l’apprentissage du modèle.
+
+But
+Le but de ce challenge est de segmenter les structures en utilisant leur forme, mais sans annotations exhaustives.
+Les données d’entraînement sont composées de deux types d’images:
+
+Des images de CT-scanner partiellement annotées, avec des masques de segmentation anatomiques de structures individuelles.
+Elles agissent comme la définition de vérité terrain de ce qu’est une structure anatomique.
+Cependant, elles ne sont pas censées être représentatives de toutes les structures possibles et leur diversité, mais peuvent toujours être utilisées comme matériau d’entraînement.
+Les masques ne contiennent pas la totalité des organes annotés sur l’ensemble du dataset. Par exemple, sur deux images abdominales,
+le masque pour A contiendra le foie et la rate, alors que le masque pour B contiendra uniquement la rate (alors que le foie est visible sur l’image).
+Des images de CT-scanner brutes, sans aucune structure segmentée
+Elles peuvent être utilisées comme matériau d’entraînement supplémentaire, dans le cadre d’un entraînement non supervisé.
+Le jeu de test est composé d’images nouvelles avec la totalité des structures segmentées correspondantes, et la métrique mesure la capacité à correctement segmenter et séparer les différentes structures sur une image.
+
+Description des données
+L’entrée est une liste d’images 2D (i.e. un numpy array 3D) en niveaux de gris, chacune correspondant à une slice d’un CT-scan (dans le plan transversal) de taille 256x256 pixels. Les slices sont mélangées et il n’y a donc aucune information 3D.
+
+La sortie est une liste de matrices 2D (i.e. un numpy array 3D) de taille 256x256 avec des valeurs entières (uint8). Chaque position (w,h) de chaque matrice $Y_{i,w,h}$ identifie une structure.
+
+Par exemple sur l’image ci-dessous :
+
+Les couleurs correspondent à des structures segmentées différentes, ainsi chaque pixel label $Y_{i,w,h}$ à la position (w,h) a des valeurs dans l’intervalle [[0; N]]. 0 est une valeur spéciale signifiant que ce pixel ne fait pas partie d’une structure et fait donc partie du fond.
+
+En pratique, la sortie est encodée sous la forme d’un fichier CSV qui encode la transposée de la matrice de labels flatten.
+
+Note : la transposée est utilisée ici pour des raisons de performance. Pandas est très lent pour charger des fichiers CSV avec de nombreuses colonnes, mais est très rapide pour charger des fichiers CSV avec de nombreuses lignes.
+
+Ainsi, le CSV est composé de 65 536 (256x256) colonnes, chacune correspondant à un pixel de l’image, et N lignes, chacune correspondant à une image.
+
+Pour obtenir la liste des matrices 2D, il faut donc transposer le CSV reçu, récupérer la ligne correspondante et la reshaper :
+
+import pandas as pd
+predictions = pd.read_csv(label_csv_path, index_col=0, header=0).T[image_index].values.reshape((256, 256))
+# A la fin, nous obtenons une liste de predictions 2D, soit un array numpy 3D de taille (N, 256, 256)
+De même, pour obtenir le CSV d’output à partir d’une liste de prédictions 2D, il est nécessaire de flatten chacune des predictions et les concaténer en une seule matrice, puis de transposer la matrice et enfin de la sauvegarder dans un fichier CSV :
+
+import pandas as pd
+# predictions est une liste de predictions 2D, soit un array numpy 3D de taille (N, 256, 256)
+predictions = np.array of [prediction_1, prediction_2, prediction_3, ...]
+pd.DataFrame(predictions.reshape((predictions.shape[0], -1))).T.to_csv(output_csv_path)
+Ce problème peut être considéré comme un problème de clustering de pixels à l’échelle de l’image, où chaque structure est un cluster dans l’image : les valeurs des labels des pixels sont des identificateurs de structure sur une image spécifique et ne sont pas nécessairement cohérentes entre les images. Par exemple, la structure associée au foie peut être associée à un label 4 sur une image et à un label 1 sur une autre image.
+
+L’ensemble d’entraînement est composé de 2000 images, divisées en deux groupes :
+
+800 avec des structures partiellement segmentées.
+Pour ces images, la sortie correspondante est une matrice 2D avec des étiquettes de pixels pour les structures et les tumeurs segmentées, et les autres pixels sont définis sur 0
+1200 d’entre elles n’ont aucune annotation du tout.
+Pour ces images, la sortie correspondante est une matrice 2D remplie de zéros
+Les données comprennent également un fichier : annotated_labels.json, qui indique quels organes sont annotés pour chaque examen.
+
+Ces organes peuvent être présents ou absents du masque de segmentation. S’ils sont absents, cela indique avec certitude que l’organe n’est pas présent dans cette image.
+
+Au contraire, pour une image donnée, si un label n’est pas présent dans annotated_labels, cela indique qu’il peut être présent ou absent dans l’image, sans information supplémentaire.
+
+Vous pouvez utiliser ce fichier :
+
+pour calculer vos métriques sur un validation set (et ne pas pénaliser les faux positifs en cas d’organe non annoté)
+pour votre entrainement, afin de n’utiliser que les labels annotés.
+Note : des segmentations des structures, sous la forme d’images (en plus du CSV) du jeu d’entraînement sont données dans les supplementary materials.
+
+L’ensemble de test est composé de 500 images avec la totalité des structures segmentées. Pour ces images, le label est une matrice 2D avec les structures segmentées, et les pixels du fond valent 0.
+
+En considérant le fait qu’une image individuelle avec sa matrice de label est d’environ 400KB, et que nous avons 500 images, nous avons alors un ensemble de données d’environ 200MB au total.
+
+Note : la segmentation map n’est pas dense, c’est-à-dire que certains pixels entre des structures ne font pas partie de structures segmentées, comme on peut le voir sur l’image ci-dessus. Ces pixels sont considérés comme faisant partie du fond.
+
+Note : l’usage de données d’entraînement radiologiques supplémentaires, de modèles pré-entraînés sur des données radiologiques, ou toute autre source de données radiologiques externe n’est pas autorisé. La seule source de données radiologique autorisée est l’ensemble d’entraînement et de test fourni par les organisateurs. Vous êtes toutefois autorisés à utiliser des données et modèles externes non radiologiques (DINO v2, SAM …).
+
+La métrique finale est calculée en moyennant le DICE pour chaque organe, puis pour chaque image.
+
+Notebook
+Un notebook explicatif peut être trouvé à l’adresse suivante :
+
+https://colab.research.google.com/drive/1tjL_vct6dihVApl8oBVg6_6JFk-U7F5S#scrollTo=EZSMQF6uSJ4t
+
+Il comprend notamment des exemples de chargement des données, de visualisation, et de calcul de la métrique et une baseline.
+
+Description du benchmark
+Le benchmark se base sur des algorithmes classiques de vision, tels que watershed, filtres de sobel, etc.
+
+Nous avons aussi évalué une baseline de modèle de segmentation sémantique (nnUNet) qui obtient un dice score de 43.99.
+
+Cours
+Enregistré sans cours
+
+Fichiers
+x_train
+variables explicatives pour l’entraînement
+y_train
+variable(s) cible(s) pour l’entraînement
+x_test
+variables explicatives pour le test
+Fichiers supplémentaires
+data-readers, baseline scripts, instructions, etc.
+L'organisateur du challenge
+PROVIDER LOGO
+Pierre Manceron - Head of Science at Raidium
+
+ SITE WEB DE L'ORGANISATEUR
+Contact
+Pour toute question concernant le challenge, vous pouvez contacter l'organisateur à challenge-data@raidium.eu
+Félicitation aux gagnants de ce challenge
+1 Lionel Leyrat
+2 Robenson Mondelice
+3 Aicha Berquecha
+3 Ilyas Hlaili
+3 Imade Bouftini
+3 Taha Boukaidi Laghzaoui
+Je veux annuler ma participation
+Challenge data est soutenu par :
+
+
+
+
+
+
+
+
+équipe | conditions d'utilisation | mentions légales et politique de confidentialité | Twitter | LinkedIn
+
