@@ -6,7 +6,6 @@ Exploratory notebooks that try to automatically outline anatomical structures (o
 
 - **Problem:** given a grayscale slice of a CT scan, draw the outline of every anatomical structure in it. The catch: in the training set, most organs are *not* labelled, so "not labelled" does not mean "not there".
 - **What was done:** several model families were tried in Jupyter notebooks: U-Nets with hand-made "prior" channels, pretrained ImageNet backbones (ResNet50, DenseNet201, ...), few-shot models, and Segment Anything (SAM / MedSAM).
-- **Main result:** this is exploratory work. No notebook reaches a final, validated score with the official metric, and several training runs were stopped before the end. The numbers that do exist are listed honestly in [Results](#results).
 - **Tech:** Python, PyTorch, torchvision, OpenCV, pandas, Segment Anything.
 
 ## Context
@@ -40,34 +39,6 @@ The repository is a set of independent experiments rather than one pipeline. The
 
 **Which notebook is the "main" one?** The repository does not say. `notebooks/PriorUNet_Working.ipynb` is the most complete end-to-end run among the top-level notebooks: it loads the data, trains, and shows predictions with no errors in its saved outputs. `PriorUNet_Working_try.ipynb` is a variant of it. All the other notebooks are experiments, and several were interrupted.
 
-## Results
-
-All numbers below come from the outputs saved inside the notebooks or from the CSV files. None of them is an official challenge score.
-
-| Experiment | What was measured | Value | Source |
-|---|---|---|---|
-| Challenge baseline (organizers) | Dice on test set | 43.99 | `docs/challenge_description_fr.txt` |
-| Prior U-Net, 50 episodes | Query pixel accuracy, last episode | 42.01 % | `notebooks/PriorUNet_Working.ipynb` (cells 6-7) |
-| Prior U-Net, 50 episodes | Pixel accuracy on images 0 / 1 / 2 | 31.09 % / 9.61 % / 9.23 % | `notebooks/PriorUNet_Working.ipynb` (cell 8) |
-| Prior U-Net variant, 100 episodes | Query pixel accuracy, last episode | 81.09 % | `notebooks/PriorUNet_Working_try.ipynb` (cells 7-8) |
-| Prior U-Net variant | Dice on annotated pixels, images 0 / 1 / 2 | 0.35 % / 0.36 % / 0.00 % | `notebooks/PriorUNet_Working_try.ipynb` (cell 9) |
-| 5 ImageNet backbones, **untrained** head | Foreground IoU on 1 image | 0.163 - 0.172 (best: ResNet50, 0.1717) | `notebooks/BackboneComparison.ipynb` (cell 16) |
-| 5 ImageNet backbones | Inference speed on CPU | 9.7 FPS (VGG16) to 96.9 FPS (MobileNetV3) | `notebooks/BackboneComparison.ipynb` (cell 18) |
-| DenseNet201, frozen encoder, 5 epochs | Validation pixel accuracy | 0.14 - 0.37 | `notebooks/BackboneComparison_Training.ipynb` (cell 12) |
-| Siamese U-Net (few-shot) | Best validation "Dice" (see warning) | 0.6007 (epoch 8) | `notebooks/early_tests/Raidium_PAN.ipynb` (cell 24) |
-| Lightweight U-Net | Mean validation "Dice", 272 images (see warning) | 0.583 | `results/early_tests/validation_results_lightweight_unet.csv` |
-| Efficient SegFormer | Mean validation "Dice", 272 images (see warning) | 0.869 | `results/early_tests/validation_results_efficient_segformer.csv` |
-| SAM, zero-shot | Challenge Dice on 200 validation images | 0.000 | `notebooks/early_tests/Raidium_Challenge_Data_2025_Exemple_Data_Handling.ipynb` (cell 17), `notebooks/early_tests/SAM_FineTuning.ipynb` (cell 22) |
-
-**Limitations. Please read before using these numbers.**
-
-- **The "Dice" values in `Raidium_PAN.ipynb` are inflated.** For each image, they average a Dice over all 55 classes, and a class that is absent from both the prediction and the ground truth counts as a perfect 1.0. Most classes are absent from any given slice, so the score is high even when the real structures are badly segmented. This is why many per-image values are exactly *k*/55, for example 0.909 = 50/55. These numbers cannot be compared with the challenge Dice. In addition, the SegFormer training cell in the saved notebook shows an interruption, so it is not documented which weights produced that CSV.
-- **Pixel accuracy is dominated by background.** About 93 % of all labelled pixels are background (`PriorUNet_Working.ipynb`, cell 3), so a high pixel accuracy does not mean that organs are well segmented. In the `_try` variant, 81 % accuracy goes with a Dice of about 0.4 % on annotated pixels.
-- **The backbone IoU (~0.17) was measured before any training**, on a single image, as "anything vs background". It only shows that the models run. It is not a quality measure. The prediction figures produced by the backbone notebooks show an empty (all-background) ground truth, so they are not used here.
-- **Some evaluations use training images** (for example, images 0-2 in the Prior U-Net viewer).
-- **Possible image/label misalignment.** Several notebooks load the 1,358 PNGs found in `train-images/` (IDs 8 to 1999 according to `Raidium_PAN.ipynb`) and pair them, in order, with the first 1,358 rows of `y_train.csv`. If the IDs are not contiguous from 0, images and labels may not match. This could explain the empty ground-truth panels. It has not been verified.
-- **Interrupted runs:** `BackboneComparison_Training.ipynb`, `EfficientNet_SegFormer_CNN.ipynb` and `MedSAM_LoRA_KFold.ipynb` were stopped during training (KeyboardInterrupt), so their result cells are empty or incomplete. In `PriorUNet_Working_try.ipynb`, the data-loading cell ends with an error, so the later cells ran on variables from an earlier session.
-- **`MedSAM_LoRA_KFold.ipynb`:** despite its name, the saved version trains only a segmentation head on a frozen MedSAM encoder (no LoRA layers are applied, and it uses a single 80/20 split instead of K-fold). It also reads `annotated_labels.json` as lists of *pixel indices*, while the challenge description defines them as *organ IDs*. As a result, it ends up with only 2 classes.
 
 ## Repository structure
 
@@ -99,7 +70,7 @@ All numbers below come from the outputs saved inside the notebooks or from the C
 │   ├── preprocessing_steps.png       # preprocessing step by step (shown above)
 │   ├── preprocessing_statistics.png  # intensity statistics before/after preprocessing
 │   ├── backbone_comparison.png       # predictions of the 5 untrained backbones on one image
-│   ├── predictions_resnet_densenet.png  # ResNet50 / DenseNet201 predictions (ground truth shown empty, see Limitations)
+│   ├── predictions_resnet_densenet.png  # ResNet50 / DenseNet201 predictions (ground-truth panels are empty)
 │   ├── predictions_all_models.png    # prediction comparison (not regenerated by any current notebook; origin not documented)
 │   ├── training_curves_all_models.png   # loss curves from BackboneComparison_Training
 │   └── early_tests/                  # figures from the notebooks in notebooks/early_tests/
