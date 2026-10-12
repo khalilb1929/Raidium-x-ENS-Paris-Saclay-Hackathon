@@ -1,0 +1,30 @@
+# Python caches
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Environments / secrets
+.venv/
+venv/
+.env
+
+# Challenge data: download it yourself (see data/README.md), do not commit it
+data/train-images/
+data/test-images/
+data/*.csv
+
+# Downloaded pretrained weights (SAM / MedSAM) and new checkpoints
+models/sam_checkpoints/
+models/sam_vit_b.pth
+models/best_*_phase1.pth
+models/best_*_phase2.pth
+models/best_efficientunet.pth
+
+# Generated outputs
+results/*submission*.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,19 @@
+# Core (used by every notebook)
+numpy
+pandas
+matplotlib
+opencv-python
+tqdm
+torch
+torchvision
+
+# Used by some notebooks
+scikit-learn          # MedSAM_LoRA_KFold, early_tests/SAM_FineTuning, early_tests/Exemple_Data_Handling
+scikit-image          # early_tests/Raidium_PAN, early_tests/Exemple_Data_Handling
+scipy                 # early_tests/Exemple_Data_Handling
+Pillow                # early_tests/SAM_FineTuning
+peft                  # MedSAM_LoRA_KFold (imported)
+segment-anything @ git+https://github.com/facebookresearch/segment-anything.git  # SAM / MedSAM notebooks
+
+# Optional
+jupyter
